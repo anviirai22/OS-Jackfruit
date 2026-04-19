@@ -180,7 +180,9 @@ PS shows STOPPED state. Terminal 1 shows clean supervisor exit. dmesg confirms m
  ![Reaping Zombies](screenshot/T6.2.png)
 
 
+
 ***Final System State***
+
 ![Final Verification](screenshot/TF.png)
 
 ---
