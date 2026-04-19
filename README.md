@@ -95,23 +95,8 @@ Final Unload:
 sudo rmmod monitor.
 sudo dmesg | grep "container_monitor" | tail -n 5
 ```
-### 5. Understand the Boilerplate
 
-The `boilerplate/` folder contains starter files:
-
-| File                   | Purpose                                             |
-| ---------------------- | --------------------------------------------------- |
-| `engine.c`             | User-space runtime and supervisor skeleton          |
-| `monitor.c`            | Kernel module skeleton                              |
-| `monitor_ioctl.h`      | Shared ioctl command definitions                    |
-| `Makefile`             | Build targets for both user-space and kernel module |
-| `cpu_hog.c`            | CPU-bound test workload                             |
-| `io_pulse.c`           | I/O-bound test workload                             |
-| `memory_hog.c`         | Memory-consuming test workload                      |
-| `environment-check.sh` | VM environment preflight check                      |
-
-
-### 6. Build and Verify
+### Build and Verify
 
 ```bash
 cd boilerplate
@@ -128,56 +113,75 @@ make -C boilerplate ci
 
 ***Task 1 – Starting Two Containers Commands run:***
 
-sudo ./engine start alpha ../rootfs-alpha "sleep 200" sudo ./engine start beta ../rootfs-beta "sleep 200"
-Both containers started in their own namespaces. The supervisor in Terminal 1 printed lifecycle and /proc mount messages for each.
 
-
+![Start Sequence](screenshot/start.png)
  
 Terminal 1
+
+![Isolation Verification](screenshot/T1.1.png)
  
 Terminal 2
+
+![Container Process Tree](screenshot/T1.2.png)
  
-Task 2 – PS Command Output Command run:
+***Task 2 – PS Command Output Command run:***
+
 sudo ./engine ps
+
 Shows alpha and beta tracked with their host PIDs, RUNNING state, start times, log paths, and 40/64 MiB memory limits.
+
+ ![Process table ](screenshot/T2.2.png)
  
 
-Task 3 – Logging Pipeline
-Commands run:
+***Task 3 – Logging Pipeline***
+
 sudo ./engine start logger1 ../rootfs-alpha "sh -c 'for i in {1..10}; do echo 1234; sleep 1; done'"
-# Wait ~10 seconds sudo ./engine logs logger1
-Log file shows ten lines of '1234' captured from the container's stdout via the bounded-buffer pipeline.
 
+Wait ~10 seconds sudo ./engine logs logger1
+
+ ![Log Output Verification](screenshot/T3.2.png)
  
 
-Task 3 (IPC) – CLI and UNIX Socket
+***Task 3 (IPC) – CLI and UNIX Socket***
+
 Terminal 1 output shows the IPC messages — [IPC] Received CMD_START, CMD_LOGS, CMD_PS — confirming commands arrive over the UNIX socket and the supervisor responds to each one.
 
- 
+![Log Persistence](screenshot/T3.1.png)
 
-Task 4 – Soft Limit Warning and Hard Limit Kill Commands run:
+ 
+***Task 4 – Soft Limit Warning and Hard Limit Kill Commands run:***
+
 sudo ./engine start hogger ../rootfs-alpha "./memory_hog" sudo dmesg | grep -i "monitor"
+
 dmesg shows the SOFT LIMIT line from the kernel module when hogger's RSS crossed 40 MiB.
-The same dmesg output shows the HARD LIMIT line when RSS crossed 64 MiB, followed by the kill. The supervisor's ps then reflects hogger's state as KILLED (HARD LIMIT).
- 
+
+The same dmesg output shows the HARD LIMIT line when RSS crossed 64 MiB, followed by the kill. 
+
+ ![Memory Breach dmesg](screenshot/T4.2.png)
 
 
-Task 5 – Scheduling Experiment Command run:
+***Task 5 – Scheduling Experiment Command run:***
+
 sudo ./engine ps
-PS output showing containers running concurrently. Timing data from cpu_hog runs demonstrates CFS fair sharing at equal nice values and faster completion for the lower-nice container.
+
  
+![CFS Priority Testing](screenshot/T5.2.png)
 
+***Task 6 – Clean Teardown Commands run:***
 
-Task 6 – Clean Teardown Commands run:
-sudo ./engine stop alpha sudo ./engine stop beta sudo ./engine ps
-# Ctrl+C in Terminal 1 sudo rmmod monitor sudo dmesg | tail -n 1
+sudo ./engine stop alpha 
+sudo ./engine stop beta 
+sudo ./engine ps
+
+Ctrl+C in Terminal 1 sudo rmmod monitor sudo dmesg | tail -n 1
+
 PS shows STOPPED state. Terminal 1 shows clean supervisor exit. dmesg confirms module unloaded. No zombies in ps aux.
 
- 
+ ![Reaping Zombies](screenshot/T6.2.png)
 
 
-
-
+***Final System State***
+![Final Verification](screenshot/TF.png)
 
 ---
 ## Key Features & Tasks
@@ -254,3 +258,8 @@ The logging pipeline relies on a classic Producer-Consumer model. To prevent rac
 ***5. CPU Scheduling & Nice Values***
 
 By conducting experiments with the Completely Fair Scheduler (CFS), the project analyzed how Linux distributes CPU time based on priority weights. The findings confirmed that lowering a container's nice value (increasing its priority) directly correlates to a larger share of CPU cycles. This integration proves that while our runtime provides isolation, it still respects the underlying kernel’s scheduling policies for resource fairness.
+
+
+## Scheduler Experiment Results
+
+![exp result](screenshot/table.png)
